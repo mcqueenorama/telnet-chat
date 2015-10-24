@@ -1,0 +1,2 @@
+telnetPort = "6001"
+logFile = "chat.log"
