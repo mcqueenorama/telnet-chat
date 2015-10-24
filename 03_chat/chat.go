@@ -24,6 +24,7 @@ type Client struct {
 }
 
 type chatMsg struct {
+	nick string
 	ch string
 	msg string
 	ts string
@@ -71,10 +72,14 @@ func setupLoggingOrDie(logFile string) *logging.Logger {
 
 }
 
-func makeChatMessage(format string, args ...interface{}) chatMsg {
+func makeChatMessage(nick string, format string, args ...interface{}) chatMsg {
 
-	return chatMsg{ ts: time.Now().Format(time.Kitchen), msg: fmt.Sprintf(format, args...) }
+	return chatMsg{ nick: nick, ts: time.Now().Format(time.Kitchen), msg: fmt.Sprintf(format, args...) }
 
+}
+
+func formatChatMessage(c chatMsg) string {
+	return fmt.Sprintf("\033[1;33;40m%s:%s\033[m:%s\033[m", c.ts, c.nick, c.msg)
 }
 
 func main() {
@@ -127,7 +132,7 @@ func (c Client) ReadLinesInto(ch chan chatMsg) {
 			break
 		}
 
-		ch <- makeChatMessage("%s: %s", c.nickname, line)
+		ch <- makeChatMessage(c.nickname, "%s", line)
 	}
 }
 
@@ -165,13 +170,13 @@ func handleConnection(c net.Conn, msgchan chan chatMsg, addchan chan Client, rmc
 	// Register user
 	addchan <- client
 	defer func() {
-		msgchan <- makeChatMessage("User %s left the chat room.\n", client.nickname)
+		msgchan <- makeChatMessage("system", "User %s left the chat room.\n", client.nickname)
 		log.Info("Connection from %v closed.\n", c.RemoteAddr())
 		rmchan <- client
 	}()
 	io.WriteString(c, fmt.Sprintf("Welcome, %s!\n\n", client.nickname))
 
-	msgchan <- makeChatMessage("New user %s has joined the chat room.\n", client.nickname)
+	msgchan <- makeChatMessage("system", "New user %s has joined the chat room.\n", client.nickname)
 
 	// I/O
 	go client.ReadLinesInto(msgchan)
@@ -188,8 +193,7 @@ func handleMessages(msgchan chan chatMsg, addchan chan Client, rmchan chan Clien
 		case msg := <-msgchan:
 			log.Info("New message: %s", msg.msg)
 			for _, ch := range clients {
-				// go func(mch chan<- chatMsg) { mch <- "\033[1;33;40m" + msg.ts + ":" + msg.msg + "\033[m" }(ch)
-				go func(mch chan chatMsg) { mch <- makeChatMessage("\033[1;33;40m" + msg.ts + ":" + msg.msg + "\033[m") }(ch)
+				go func(mch chan chatMsg, _msg chatMsg) { mch <- makeChatMessage(_msg.nick, formatChatMessage(_msg)) }(ch, msg)
 			}
 
 		case client := <-addchan:
