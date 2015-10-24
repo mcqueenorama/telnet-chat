@@ -7,9 +7,14 @@ import (
 	"net"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/op/go-logging"
 	"github.com/spf13/viper"
+)
+
+const (
+	telnetPortName = "telnetPort"
 )
 
 type Client struct {
@@ -60,6 +65,10 @@ func setupLoggingOrDie(logFile string) *logging.Logger {
 
 }
 
+func formatMessage(format string, args ...interface{}) string {
+	return fmt.Sprintf(time.Now().Format(time.Kitchen) + ": " + format, args...)
+}
+
 func main() {
 
 	var configDefault string = "chat"
@@ -67,7 +76,7 @@ func main() {
 	viper.SetConfigName(configDefault)
 	viper.SetConfigType("toml")
 	viper.AddConfigPath("./")
-	viper.SetDefault("telnetPort", "6000")
+	viper.SetDefault(telnetPortName, "6000")
 	
 	err := viper.ReadInConfig()
 	if err != nil {
@@ -78,8 +87,8 @@ func main() {
 
 	log = setupLoggingOrDie(logFile)
 
-	log.Info("listening on port:%s:\n", viper.GetString("telnetPort"))
-	ln, err := net.Listen("tcp", ":"+ viper.GetString("telnetPort"))
+	log.Info("listening on port:%s:\n", viper.GetString(telnetPortName))
+	ln, err := net.Listen("tcp", ":"+ viper.GetString(telnetPortName))
 	if err != nil {
 		log.Error("Listener setup error:%v:\n", err)
 		os.Exit(1)
@@ -109,7 +118,8 @@ func (c Client) ReadLinesInto(ch chan<- string) {
 		if err != nil {
 			break
 		}
-		ch <- fmt.Sprintf("%s: %s", c.nickname, line)
+
+		ch <- formatMessage("%s: %s", c.nickname, line)
 	}
 }
 
@@ -151,7 +161,8 @@ func handleConnection(c net.Conn, msgchan chan<- string, addchan chan<- Client, 
 		rmchan <- client
 	}()
 	io.WriteString(c, fmt.Sprintf("Welcome, %s!\n\n", client.nickname))
-	msgchan <- fmt.Sprintf("New user %s has joined the chat room.\n", client.nickname)
+
+	msgchan <- formatMessage("New user %s has joined the chat room.\n", client.nickname)
 
 	// I/O
 	go client.ReadLinesInto(msgchan)
@@ -169,12 +180,12 @@ func handleMessages(msgchan <-chan string, addchan <-chan Client, rmchan <-chan 
 			for _, ch := range clients {
 				go func(mch chan<- string) { mch <- "\033[1;33;40m" + msg + "\033[m" }(ch)
 			}
+
 		case client := <-addchan:
-			// log.Info("New client: %v\n", client.conn)
 			log.Info("New client: %v\n", client.conn.RemoteAddr())
 			clients[client.conn] = client.ch
+
 		case client := <-rmchan:
-			// log.Info("Client disconnects: %v\n", client.conn)
 			log.Info("Client disconnects: %v\n", client.conn.RemoteAddr())
 			delete(clients, client.conn)
 		}
