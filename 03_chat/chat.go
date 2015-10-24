@@ -8,6 +8,9 @@ import (
 	"net"
 	"os"
 	"strings"
+
+	// "github.com/op/go-logging"
+	"github.com/spf13/viper"
 )
 
 type Client struct {
@@ -17,7 +20,22 @@ type Client struct {
 }
 
 func main() {
-	ln, err := net.Listen("tcp", ":6000")
+
+	var configDefault string = "chat"
+
+	viper.SetConfigName(configDefault)
+	viper.SetConfigType("toml")
+	viper.AddConfigPath("./")
+	viper.SetDefault("port", "6000")
+	
+	err := viper.ReadInConfig()
+	if err != nil {
+		log.Printf("No configuration file found:%s:err:%v: - using defaults\n", configDefault, err)
+	}
+
+
+	log.Printf("listening on port:%s:\n", viper.GetString("port"))
+	ln, err := net.Listen("tcp", ":"+ viper.GetString("port"))
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
