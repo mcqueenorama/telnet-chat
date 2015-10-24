@@ -9,8 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/op/go-logging"
 	"github.com/spf13/viper"
+
+	"./logger"
 )
 
 const (
@@ -25,61 +26,25 @@ type Client struct {
 
 type chatMsg struct {
 	nick string
-	ch string
-	msg string
-	ts string
+	ch   string
+	msg  string
+	ts   string
 }
 
-// logger used throughout
-// defaults to stdout
-// setup in setupLoggingOrDie
-var log *logging.Logger
-
-// setup logging properly or die
-// logs are not open yet so write for Std*
-func setupLoggingOrDie(logFile string) *logging.Logger {
-
-	//default log to stdout
-	var logHandle io.WriteCloser = os.Stdout
-
-	var err error
-
-	if logFile != "" {
-
-		if logHandle, err = os.OpenFile(logFile, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0666); err != nil {
-			fmt.Fprintf(os.Stderr, "Can't open log:%s:err:%v:\n", logFile, err)
-			os.Exit(1)
-		}
-
-		fmt.Printf("Logging to:logFile:%s:\n", logFile)
-
-	} else {
-		fmt.Printf("No logfile specified - going with stdout\n")
-	}
-
-	_log, err := logging.GetLogger("chatLog")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Can't start logger:%s:err:%v:\n", logFile, err)
-		os.Exit(1)
-	}
-
-	backend1 := logging.NewLogBackend(logHandle, "", 0)
-	backend1Leveled := logging.AddModuleLevel(backend1)
-	backend1Leveled.SetLevel(logging.INFO, "")
-	logging.SetBackend(backend1Leveled)
-
-	return _log
-
-}
+var log *logger.Log
 
 func makeChatMessage(nick string, format string, args ...interface{}) chatMsg {
 
-	return chatMsg{ nick: nick, ts: time.Now().Format(time.Kitchen), msg: fmt.Sprintf(format, args...) }
+	return chatMsg{nick: nick, ts: time.Now().Format(time.Kitchen), msg: fmt.Sprintf(format, args...)}
 
 }
 
+//move this fmt string into config file
+//
+//found a page showing what this stuff means
+//https://xdevs.com/guide/color_serial/
 func formatChatMessage(c chatMsg) string {
-	return fmt.Sprintf("\033[1;33;40m%s:%s\033[m:%s\033[m", c.ts, c.nick, c.msg)
+	return fmt.Sprintf("\033[1;33;40m%s: %s \033[m:%s\033[m", c.ts, c.nick, c.msg)
 }
 
 func main() {
@@ -90,7 +55,7 @@ func main() {
 	viper.SetConfigType("toml")
 	viper.AddConfigPath("./")
 	viper.SetDefault(telnetPortName, "6000")
-	
+
 	err := viper.ReadInConfig()
 	if err != nil {
 		fmt.Printf("No configuration file found:%s:err:%v: - using defaults\n", configDefault, err)
@@ -98,10 +63,10 @@ func main() {
 
 	logFile := viper.GetString("logFile")
 
-	log = setupLoggingOrDie(logFile)
+	log = logger.SetupLoggingOrDie(logFile)
 
 	log.Info("listening on port:%s:\n", viper.GetString(telnetPortName))
-	ln, err := net.Listen("tcp", ":"+ viper.GetString(telnetPortName))
+	ln, err := net.Listen("tcp", ":"+viper.GetString(telnetPortName))
 	if err != nil {
 		log.Error("Listener setup error:%v:\n", err)
 		os.Exit(1)
