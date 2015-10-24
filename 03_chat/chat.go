@@ -138,7 +138,7 @@ func (c Client) ReadLinesInto(ch chan chatMsg) {
 
 func (c Client) WriteLinesFrom(ch chan chatMsg) {
 	for msg := range ch {
-		_, err := io.WriteString(c.conn, msg.msg)
+		_, err := io.WriteString(c.conn, formatChatMessage(msg))
 		if err != nil {
 			return
 		}
@@ -193,7 +193,7 @@ func handleMessages(msgchan chan chatMsg, addchan chan Client, rmchan chan Clien
 		case msg := <-msgchan:
 			log.Info("New message: %s", msg.msg)
 			for _, ch := range clients {
-				go func(mch chan chatMsg, _msg chatMsg) { mch <- makeChatMessage(_msg.nick, formatChatMessage(_msg)) }(ch, msg)
+				go func(mch chan chatMsg, _msg chatMsg) { mch <- _msg }(ch, msg)
 			}
 
 		case client := <-addchan:
