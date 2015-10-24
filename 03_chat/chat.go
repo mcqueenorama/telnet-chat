@@ -119,7 +119,7 @@ func main() {
 	}
 }
 
-func (c Client) ReadLinesInto(ch chan<- chatMsg) {
+func (c Client) ReadLinesInto(ch chan chatMsg) {
 	bufc := bufio.NewReader(c.conn)
 	for {
 		line, err := bufc.ReadString('\n')
@@ -131,7 +131,7 @@ func (c Client) ReadLinesInto(ch chan<- chatMsg) {
 	}
 }
 
-func (c Client) WriteLinesFrom(ch <-chan chatMsg) {
+func (c Client) WriteLinesFrom(ch chan chatMsg) {
 	for msg := range ch {
 		_, err := io.WriteString(c.conn, msg.msg)
 		if err != nil {
@@ -147,7 +147,7 @@ func promptNick(c net.Conn, bufc *bufio.Reader) string {
 	return string(nick)
 }
 
-func handleConnection(c net.Conn, msgchan chan<- chatMsg, addchan chan<- Client, rmchan chan<- Client) {
+func handleConnection(c net.Conn, msgchan chan chatMsg, addchan chan Client, rmchan chan Client) {
 
 	bufc := bufio.NewReader(c)
 	defer c.Close()
@@ -179,9 +179,9 @@ func handleConnection(c net.Conn, msgchan chan<- chatMsg, addchan chan<- Client,
 
 }
 
-func handleMessages(msgchan <-chan chatMsg, addchan <-chan Client, rmchan <-chan Client) {
+func handleMessages(msgchan chan chatMsg, addchan chan Client, rmchan chan Client) {
 
-	clients := make(map[net.Conn]chan<- chatMsg)
+	clients := make(map[net.Conn]chan chatMsg)
 
 	for {
 		select {
@@ -189,7 +189,7 @@ func handleMessages(msgchan <-chan chatMsg, addchan <-chan Client, rmchan <-chan
 			log.Info("New message: %s", msg.msg)
 			for _, ch := range clients {
 				// go func(mch chan<- chatMsg) { mch <- "\033[1;33;40m" + msg.ts + ":" + msg.msg + "\033[m" }(ch)
-				go func(mch chan<- chatMsg) { mch <- makeChatMessage("\033[1;33;40m" + msg.ts + ":" + msg.msg + "\033[m") }(ch)
+				go func(mch chan chatMsg) { mch <- makeChatMessage("\033[1;33;40m" + msg.ts + ":" + msg.msg + "\033[m") }(ch)
 			}
 
 		case client := <-addchan:
