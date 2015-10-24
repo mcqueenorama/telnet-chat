@@ -20,7 +20,13 @@ const (
 type Client struct {
 	conn     net.Conn
 	nickname string
-	ch       chan string
+	ch       chan chatMsg
+}
+
+type chatMsg struct {
+	ch string
+	msg string
+	ts string
 }
 
 // logger used throughout
@@ -65,8 +71,10 @@ func setupLoggingOrDie(logFile string) *logging.Logger {
 
 }
 
-func formatMessage(format string, args ...interface{}) string {
-	return fmt.Sprintf(time.Now().Format(time.Kitchen) + ": " + format, args...)
+func makeChatMessage(format string, args ...interface{}) chatMsg {
+
+	return chatMsg{ ts: time.Now().Format(time.Kitchen), msg: fmt.Sprintf(format, args...) }
+
 }
 
 func main() {
@@ -94,7 +102,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	msgchan := make(chan string)
+	msgchan := make(chan chatMsg)
 	addchan := make(chan Client)
 	rmchan := make(chan Client)
 
@@ -111,7 +119,7 @@ func main() {
 	}
 }
 
-func (c Client) ReadLinesInto(ch chan<- string) {
+func (c Client) ReadLinesInto(ch chan<- chatMsg) {
 	bufc := bufio.NewReader(c.conn)
 	for {
 		line, err := bufc.ReadString('\n')
@@ -119,13 +127,13 @@ func (c Client) ReadLinesInto(ch chan<- string) {
 			break
 		}
 
-		ch <- formatMessage("%s: %s", c.nickname, line)
+		ch <- makeChatMessage("%s: %s", c.nickname, line)
 	}
 }
 
-func (c Client) WriteLinesFrom(ch <-chan string) {
+func (c Client) WriteLinesFrom(ch <-chan chatMsg) {
 	for msg := range ch {
-		_, err := io.WriteString(c.conn, msg)
+		_, err := io.WriteString(c.conn, msg.msg)
 		if err != nil {
 			return
 		}
@@ -139,15 +147,16 @@ func promptNick(c net.Conn, bufc *bufio.Reader) string {
 	return string(nick)
 }
 
-func handleConnection(c net.Conn, msgchan chan<- string, addchan chan<- Client, rmchan chan<- Client) {
+func handleConnection(c net.Conn, msgchan chan<- chatMsg, addchan chan<- Client, rmchan chan<- Client) {
 
 	bufc := bufio.NewReader(c)
 	defer c.Close()
 	client := Client{
 		conn:     c,
 		nickname: promptNick(c, bufc),
-		ch:       make(chan string),
+		ch:       make(chan chatMsg),
 	}
+
 	if strings.TrimSpace(client.nickname) == "" {
 		io.WriteString(c, "Invalid Username\n")
 		return
@@ -156,13 +165,13 @@ func handleConnection(c net.Conn, msgchan chan<- string, addchan chan<- Client, 
 	// Register user
 	addchan <- client
 	defer func() {
-		msgchan <- fmt.Sprintf("User %s left the chat room.\n", client.nickname)
+		msgchan <- makeChatMessage("User %s left the chat room.\n", client.nickname)
 		log.Info("Connection from %v closed.\n", c.RemoteAddr())
 		rmchan <- client
 	}()
 	io.WriteString(c, fmt.Sprintf("Welcome, %s!\n\n", client.nickname))
 
-	msgchan <- formatMessage("New user %s has joined the chat room.\n", client.nickname)
+	msgchan <- makeChatMessage("New user %s has joined the chat room.\n", client.nickname)
 
 	// I/O
 	go client.ReadLinesInto(msgchan)
@@ -170,15 +179,17 @@ func handleConnection(c net.Conn, msgchan chan<- string, addchan chan<- Client, 
 
 }
 
-func handleMessages(msgchan <-chan string, addchan <-chan Client, rmchan <-chan Client) {
-	clients := make(map[net.Conn]chan<- string)
+func handleMessages(msgchan <-chan chatMsg, addchan <-chan Client, rmchan <-chan Client) {
+
+	clients := make(map[net.Conn]chan<- chatMsg)
 
 	for {
 		select {
 		case msg := <-msgchan:
-			log.Info("New message: %s", msg)
+			log.Info("New message: %s", msg.msg)
 			for _, ch := range clients {
-				go func(mch chan<- string) { mch <- "\033[1;33;40m" + msg + "\033[m" }(ch)
+				// go func(mch chan<- chatMsg) { mch <- "\033[1;33;40m" + msg.ts + ":" + msg.msg + "\033[m" }(ch)
+				go func(mch chan<- chatMsg) { mch <- makeChatMessage("\033[1;33;40m" + msg.ts + ":" + msg.msg + "\033[m") }(ch)
 			}
 
 		case client := <-addchan:
@@ -190,4 +201,5 @@ func handleMessages(msgchan <-chan string, addchan <-chan Client, rmchan <-chan 
 			delete(clients, client.conn)
 		}
 	}
+
 }
