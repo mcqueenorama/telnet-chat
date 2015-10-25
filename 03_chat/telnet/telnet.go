@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"os"
 	"strings"
 
 	"../client"
@@ -40,7 +41,13 @@ func WriteLinesFrom(c client.Client) {
 	}
 }
 
-func TelnetServer(ln net.Listener, msgchan chan m.ChatMsg, addchan chan client.Client, rmchan chan client.Client) {
+func TelnetServer(port string, msgchan chan m.ChatMsg, addchan chan client.Client, rmchan chan client.Client) {
+
+	ln, err := net.Listen("tcp", ":" + port)
+	if err != nil {
+		log.Error("Listener setup error:%v:\n", err)
+		os.Exit(1)
+	}
 
 	for {
 		conn, err := ln.Accept()

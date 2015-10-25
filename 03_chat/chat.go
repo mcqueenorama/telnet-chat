@@ -2,8 +2,6 @@ package main
 
 import (
 	"fmt"
-	"net"
-	"os"
 
 	"github.com/spf13/viper"
 
@@ -39,11 +37,6 @@ func main() {
 	log.MustSetupLogging(logFile)
 
 	log.Info("listening on ports:telnet:%s:api:%s:\n", viper.GetString(telnetPortName), viper.GetString(apiPortName))
-	ln, err := net.Listen("tcp", ":" + viper.GetString(telnetPortName))
-	if err != nil {
-		log.Error("Listener setup error:%v:\n", err)
-		os.Exit(1)
-	}
 
 	msgchan := make(chan m.ChatMsg)
 	addchan := make(chan client.Client)
@@ -51,7 +44,7 @@ func main() {
 
 	go handleMessages(msgchan, addchan, rmchan)
 
-	go telnet.TelnetServer(ln, msgchan, addchan, rmchan)
+	go telnet.TelnetServer(viper.GetString(telnetPortName), msgchan, addchan, rmchan)
 
 	api.ApiServer(viper.GetString(apiPortName), msgchan, addchan, rmchan)
 
