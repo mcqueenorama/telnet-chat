@@ -1,2 +1,3 @@
-telnetPort = "6001"
+telnetPort = "6000"
+apiPort = "6001"
 logFile = "chat.log"

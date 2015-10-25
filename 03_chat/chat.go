@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -12,10 +13,12 @@ import (
 	"github.com/spf13/viper"
 
 	"./logger"
+	"./util"
 )
 
 const (
 	telnetPortName = "telnetPort"
+	apiPortName = "apiPort"
 )
 
 type Client struct {
@@ -23,6 +26,7 @@ type Client struct {
 	id string
 	nickname string
 	ch       chan chatMsg
+	kind string
 }
 
 type chatMsg struct {
@@ -56,6 +60,7 @@ func main() {
 	viper.SetConfigType("toml")
 	viper.AddConfigPath("./")
 	viper.SetDefault(telnetPortName, "6000")
+	viper.SetDefault(apiPortName, "6001")
 
 	err := viper.ReadInConfig()
 	if err != nil {
@@ -66,16 +71,19 @@ func main() {
 
 	log = logger.SetupLoggingOrDie(logFile)
 
-	log.Info("listening on port:%s:\n", viper.GetString(telnetPortName))
-	ln, err := net.Listen("tcp", ":"+viper.GetString(telnetPortName))
+	log.Info("listening on ports:telnet:%s:api:%s:\n", viper.GetString(telnetPortName), viper.GetString(apiPortName))
+	ln, err := net.Listen("tcp", ":" + viper.GetString(telnetPortName))
 	if err != nil {
 		log.Error("Listener setup error:%v:\n", err)
 		os.Exit(1)
 	}
 
+	
 	msgchan := make(chan chatMsg)
 	addchan := make(chan Client)
 	rmchan := make(chan Client)
+
+	go apiServer(viper.GetString(apiPortName), msgchan, addchan, rmchan)
 
 	go handleMessages(msgchan, addchan, rmchan)
 
@@ -86,7 +94,7 @@ func main() {
 			continue
 		}
 
-		go handleConnection(conn, conn.RemoteAddr().String(), msgchan, addchan, rmchan)
+		go handleTelnetConnection(conn, conn.RemoteAddr().String(), msgchan, addchan, rmchan)
 	}
 
 }
@@ -120,7 +128,7 @@ func promptNick(c io.ReadWriter, bufc *bufio.Reader) string {
 }
 
 // telnet oriented
-func handleConnection(c io.ReadWriteCloser, id string, msgchan chan chatMsg, addchan chan Client, rmchan chan Client) {
+func handleTelnetConnection(c io.ReadWriteCloser, id string, msgchan chan chatMsg, addchan chan Client, rmchan chan Client) {
 
 	bufc := bufio.NewReader(c)
 	defer c.Close()
@@ -129,6 +137,7 @@ func handleConnection(c io.ReadWriteCloser, id string, msgchan chan chatMsg, add
 		nickname: promptNick(c, bufc),
 		ch:       make(chan chatMsg),
 		id: id,
+		kind: "telnet",
 	}
 
 	if strings.TrimSpace(client.nickname) == "" {
@@ -173,6 +182,62 @@ func handleMessages(msgchan chan chatMsg, addchan chan Client, rmchan chan Clien
 			log.Info("Client disconnects: %v\n", client.id)
 			delete(clients, client.id)
 		}
+	}
+
+}
+
+func apiServer(port string, msgchan chan chatMsg, addchan chan Client, rmchan chan Client) {
+
+	http.HandleFunc("/chat/", func(w http.ResponseWriter, req *http.Request) {
+
+		var channel, nick, msg string
+
+		urlParts := strings.Split(req.URL.Path, "/")
+
+		log.Info("api call:%s:parts:%d:\n", req.URL.Path, len(urlParts))
+
+		if len(urlParts) < 5 {
+	        http.NotFound(w, req)
+	        return
+        } else if urlParts[3] == "" {
+	        http.NotFound(w, req)
+	        return
+        } else if urlParts[4] == "" {
+	        http.NotFound(w, req)
+	        return
+		} else {
+			channel = urlParts[2]
+			nick = urlParts[3]
+			msg = strings.Join(urlParts[4:], "/")
+		}
+
+		log.Info("api call:channel:%s:nick:%s:msg:%s:\n", channel, nick, msg)
+
+		client := Client{
+			conn:     util.Nop(1),
+			nickname: nick,
+			ch:       make(chan chatMsg),
+			id: 	req.RemoteAddr,
+			kind: "api",
+		}
+
+		// Register user
+		// addchan <- client
+		// defer func() {
+			// msgchan <- makeChatMessage(nick, msg)
+			msgchan <- client
+			// msgchan <- makeChatMessage(nick, "%s\n", msg)
+			// log.Info("api ip:%s:user:%s:sending msg to channel:%s:\n", client.id, client.nickname, channel)
+			// rmchan <- client
+		// }()
+
+		fmt.Fprintf(w, "sending message for:user:%s:to chan:%s:\n", nick, channel)
+
+	})
+
+	err := http.ListenAndServe(":" + port, nil)
+	if err != nil {
+		log.Fatal("ListenAndServe: ", err)
 	}
 
 }
