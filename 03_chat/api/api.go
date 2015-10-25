@@ -1,13 +1,13 @@
 package api
 
 import (
-"fmt"
-"net/http"
-"strings"
+	"fmt"
+	"net/http"
+	"strings"
 
-"../client"
-"../logger"
-m "../message"
+	"../client"
+	"../logger"
+	m "../message"
 )
 
 func ApiServer(port string, msgchan chan m.ChatMsg, addchan chan client.Client, rmchan chan client.Client, log *logger.Log) {
@@ -21,14 +21,14 @@ func ApiServer(port string, msgchan chan m.ChatMsg, addchan chan client.Client, 
 		log.Info("api call:%s:parts:%d:\n", req.URL.Path, len(urlParts))
 
 		if len(urlParts) < 5 {
-	        http.NotFound(w, req)
-	        return
-        } else if urlParts[3] == "" {
-	        http.NotFound(w, req)
-	        return
-        } else if urlParts[4] == "" {
-	        http.NotFound(w, req)
-	        return
+			http.NotFound(w, req)
+			return
+		} else if urlParts[3] == "" {
+			http.NotFound(w, req)
+			return
+		} else if urlParts[4] == "" {
+			http.NotFound(w, req)
+			return
 		} else {
 			channel = urlParts[2]
 			nick = urlParts[3]
@@ -43,7 +43,7 @@ func ApiServer(port string, msgchan chan m.ChatMsg, addchan chan client.Client, 
 
 	})
 
-	err := http.ListenAndServe(":" + port, nil)
+	err := http.ListenAndServe(":"+port, nil)
 	if err != nil {
 		log.Fatal("ListenAndServe: ", err)
 	}

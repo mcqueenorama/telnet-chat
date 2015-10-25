@@ -1,15 +1,15 @@
 package telnet
 
 import (
-"bufio"
-"fmt"
-"io"
-"net"
-"strings"
+	"bufio"
+	"fmt"
+	"io"
+	"net"
+	"strings"
 
-"../client"
-"../logger"
-m "../message"
+	"../client"
+	"../logger"
+	m "../message"
 )
 
 func promptNick(c io.ReadWriter, bufc *bufio.Reader) string {
@@ -61,8 +61,8 @@ func handleConnection(c io.ReadWriteCloser, id string, msgchan chan m.ChatMsg, a
 		Conn:     c,
 		Nickname: promptNick(c, bufc),
 		Ch:       make(chan m.ChatMsg),
-		Id: id,
-		Kind: "telnet",
+		Id:       id,
+		Kind:     "telnet",
 	}
 
 	if strings.TrimSpace(client.Nickname) == "" {

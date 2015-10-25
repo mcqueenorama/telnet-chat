@@ -50,6 +50,6 @@ func SetupLoggingOrDie(logFile string) *Log {
 	backend1Leveled.SetLevel(logging.INFO, "")
 	logging.SetBackend(backend1Leveled)
 
-	return &Log{ log }
+	return &Log{log}
 
 }

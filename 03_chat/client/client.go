@@ -1,14 +1,14 @@
 package client
 
 import (
-"io"
-m "../message"
+	m "../message"
+	"io"
 )
 
 type Client struct {
 	Conn     io.ReadWriteCloser
-	Id string
+	Id       string
 	Nickname string
 	Ch       chan m.ChatMsg
-	Kind string
+	Kind     string
 }

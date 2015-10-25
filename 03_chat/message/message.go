@@ -1,15 +1,15 @@
 package message
 
 import (
-"fmt"
-"time"
+	"fmt"
+	"time"
 )
 
 type ChatMsg struct {
-	Nick string
-	Channel   string
-	Msg  string
-	Time   string
+	Nick    string
+	Channel string
+	Msg     string
+	Time    string
 }
 
 //move this fmt string into config file
