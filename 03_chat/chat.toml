@@ -1,3 +1,5 @@
 telnetPort = "6000"
+telnetIP = "127.0.0.1"
 apiPort = "6001"
+apiIP = "127.0.0.1"
 logFile = "chat.log"

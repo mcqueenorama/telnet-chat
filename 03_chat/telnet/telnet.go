@@ -41,9 +41,9 @@ func WriteLinesFrom(c client.Client) {
 	}
 }
 
-func TelnetServer(port string, msgchan chan m.ChatMsg, addchan chan client.Client, rmchan chan client.Client) {
+func TelnetServer(ip, port string, msgchan chan m.ChatMsg, addchan chan client.Client, rmchan chan client.Client) {
 
-	ln, err := net.Listen("tcp", ":" + port)
+	ln, err := net.Listen("tcp", ip + ":" + port)
 	if err != nil {
 		log.Error("Listener setup error:%v:\n", err)
 		os.Exit(1)

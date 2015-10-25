@@ -13,7 +13,9 @@ import (
 )
 
 const (
+	telnetIPWord = "telnetIP"
 	telnetPortWord = "telnetPort"
+	apiIPWord    = "apiIP"
 	apiPortWord    = "apiPort"
 )
 
@@ -24,7 +26,9 @@ func main() {
 	viper.SetConfigName(configDefault)
 	viper.SetConfigType("toml")
 	viper.AddConfigPath("./")
+	viper.SetDefault(telnetIPWord, "127.0.0.1")
 	viper.SetDefault(telnetPortWord, "6000")
+	viper.SetDefault(apiIPWord, "127.0.0.1")
 	viper.SetDefault(apiPortWord, "6001")
 
 	err := viper.ReadInConfig()
@@ -36,7 +40,7 @@ func main() {
 
 	log.MustSetupLogging(logFile)
 
-	log.Info("listening on ports:telnet:%s:api:%s:\n", viper.GetString(telnetPortWord), viper.GetString(apiPortWord))
+	log.Info("listening on:telnet:%s:%s:api:%s:%s:\n", viper.GetString(telnetIPWord), viper.GetString(telnetPortWord), viper.GetString(apiIPWord), viper.GetString(apiPortWord))
 
 	msgchan := make(chan m.ChatMsg)
 	addchan := make(chan client.Client)
@@ -44,9 +48,9 @@ func main() {
 
 	go handleMessages(msgchan, addchan, rmchan)
 
-	go telnet.TelnetServer(viper.GetString(telnetPortWord), msgchan, addchan, rmchan)
+	go telnet.TelnetServer(viper.GetString(telnetIPWord), viper.GetString(telnetPortWord), msgchan, addchan, rmchan)
 
-	api.ApiServer(viper.GetString(apiPortWord), msgchan, addchan, rmchan)
+	api.ApiServer(viper.GetString(apiIPWord), viper.GetString(apiPortWord), msgchan, addchan, rmchan)
 
 }
 

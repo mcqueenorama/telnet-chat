@@ -10,7 +10,7 @@ import (
 	m "../message"
 )
 
-func ApiServer(port string, msgchan chan m.ChatMsg, addchan chan client.Client, rmchan chan client.Client) {
+func ApiServer(ip, port string, msgchan chan m.ChatMsg, addchan chan client.Client, rmchan chan client.Client) {
 
 	http.HandleFunc("/chat/", func(w http.ResponseWriter, req *http.Request) {
 
@@ -39,11 +39,12 @@ func ApiServer(port string, msgchan chan m.ChatMsg, addchan chan client.Client, 
 
 		msgchan <- m.MakeChatMessage(nick, "%s\n", msg)
 
+		//send reply to the caller
 		fmt.Fprintf(w, "sending message for:user:%s:to chan:%s:\n", nick, channel)
 
 	})
 
-	err := http.ListenAndServe(":"+port, nil)
+	err := http.ListenAndServe(ip + ":" + port, nil)
 	if err != nil {
 		log.Fatal("ListenAndServe: ", err)
 	}
