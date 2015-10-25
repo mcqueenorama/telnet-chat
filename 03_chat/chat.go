@@ -9,7 +9,7 @@ import (
 
 	"./api"
 	"./client"
-	"./logger"
+	log "./logger"
 	m "./message"
 	"./telnet"
 )
@@ -36,10 +36,10 @@ func main() {
 
 	logFile := viper.GetString("logFile")
 
-	log := logger.SetupLoggingOrDie(logFile)
+	log.MustSetupLogging(logFile)
 
 	log.Info("listening on ports:telnet:%s:api:%s:\n", viper.GetString(telnetPortName), viper.GetString(apiPortName))
-	ln, err := net.Listen("tcp", ":"+viper.GetString(telnetPortName))
+	ln, err := net.Listen("tcp", ":" + viper.GetString(telnetPortName))
 	if err != nil {
 		log.Error("Listener setup error:%v:\n", err)
 		os.Exit(1)
@@ -49,22 +49,22 @@ func main() {
 	addchan := make(chan client.Client)
 	rmchan := make(chan client.Client)
 
-	go handleMessages(msgchan, addchan, rmchan, log)
+	go handleMessages(msgchan, addchan, rmchan)
 
-	go telnet.TelnetServer(ln, msgchan, addchan, rmchan, log)
+	go telnet.TelnetServer(ln, msgchan, addchan, rmchan)
 
-	api.ApiServer(viper.GetString(apiPortName), msgchan, addchan, rmchan, log)
+	api.ApiServer(viper.GetString(apiPortName), msgchan, addchan, rmchan)
 
 }
 
-func handleMessages(msgchan chan m.ChatMsg, addchan chan client.Client, rmchan chan client.Client, log *logger.Log) {
+func handleMessages(msgchan chan m.ChatMsg, addchan chan client.Client, rmchan chan client.Client) {
 
 	clients := make(map[string]chan m.ChatMsg)
 
 	for {
 		select {
 		case msg := <-msgchan:
-			log.Info("New message: %s", msg.Msg)
+			log.Info("New message: %s", msg.Msg[0:len(msg.Msg) - 1])
 			for _, ch := range clients {
 				go func(mch chan m.ChatMsg, _msg m.ChatMsg) { mch <- _msg }(ch, msg)
 			}

@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"../client"
-	"../logger"
+	log "../logger"
 	m "../message"
 )
 
@@ -40,7 +40,7 @@ func WriteLinesFrom(c client.Client) {
 	}
 }
 
-func TelnetServer(ln net.Listener, msgchan chan m.ChatMsg, addchan chan client.Client, rmchan chan client.Client, log *logger.Log) {
+func TelnetServer(ln net.Listener, msgchan chan m.ChatMsg, addchan chan client.Client, rmchan chan client.Client) {
 
 	for {
 		conn, err := ln.Accept()
@@ -49,11 +49,11 @@ func TelnetServer(ln net.Listener, msgchan chan m.ChatMsg, addchan chan client.C
 			continue
 		}
 
-		go handleConnection(conn, conn.RemoteAddr().String(), msgchan, addchan, rmchan, log)
+		go handleConnection(conn, conn.RemoteAddr().String(), msgchan, addchan, rmchan)
 	}
 }
 
-func handleConnection(c io.ReadWriteCloser, id string, msgchan chan m.ChatMsg, addchan chan client.Client, rmchan chan client.Client, log *logger.Log) {
+func handleConnection(c io.ReadWriteCloser, id string, msgchan chan m.ChatMsg, addchan chan client.Client, rmchan chan client.Client) {
 
 	bufc := bufio.NewReader(c)
 	defer c.Close()

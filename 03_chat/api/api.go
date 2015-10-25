@@ -6,11 +6,11 @@ import (
 	"strings"
 
 	"../client"
-	"../logger"
+	log "../logger"
 	m "../message"
 )
 
-func ApiServer(port string, msgchan chan m.ChatMsg, addchan chan client.Client, rmchan chan client.Client, log *logger.Log) {
+func ApiServer(port string, msgchan chan m.ChatMsg, addchan chan client.Client, rmchan chan client.Client) {
 
 	http.HandleFunc("/chat/", func(w http.ResponseWriter, req *http.Request) {
 
