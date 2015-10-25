@@ -19,7 +19,8 @@ const (
 )
 
 type Client struct {
-	conn     net.Conn
+	conn     io.ReadWriteCloser
+	id string
 	nickname string
 	ch       chan chatMsg
 }
@@ -85,8 +86,9 @@ func main() {
 			continue
 		}
 
-		go handleConnection(conn, msgchan, addchan, rmchan)
+		go handleConnection(conn, conn.RemoteAddr().String(), msgchan, addchan, rmchan)
 	}
+
 }
 
 func (c Client) ReadLinesInto(ch chan chatMsg) {
@@ -110,14 +112,15 @@ func (c Client) WriteLinesFrom(ch chan chatMsg) {
 	}
 }
 
-func promptNick(c net.Conn, bufc *bufio.Reader) string {
+func promptNick(c io.ReadWriter, bufc *bufio.Reader) string {
 	io.WriteString(c, "\033[1;30;41mWelcome to the fancy demo chat!\033[0m\n")
 	io.WriteString(c, "What is your nick? ")
 	nick, _, _ := bufc.ReadLine()
 	return string(nick)
 }
 
-func handleConnection(c net.Conn, msgchan chan chatMsg, addchan chan Client, rmchan chan Client) {
+// telnet oriented
+func handleConnection(c io.ReadWriteCloser, id string, msgchan chan chatMsg, addchan chan Client, rmchan chan Client) {
 
 	bufc := bufio.NewReader(c)
 	defer c.Close()
@@ -125,6 +128,7 @@ func handleConnection(c net.Conn, msgchan chan chatMsg, addchan chan Client, rmc
 		conn:     c,
 		nickname: promptNick(c, bufc),
 		ch:       make(chan chatMsg),
+		id: id,
 	}
 
 	if strings.TrimSpace(client.nickname) == "" {
@@ -136,7 +140,7 @@ func handleConnection(c net.Conn, msgchan chan chatMsg, addchan chan Client, rmc
 	addchan <- client
 	defer func() {
 		msgchan <- makeChatMessage("system", "User %s left the chat room.\n", client.nickname)
-		log.Info("Connection from %v closed.\n", c.RemoteAddr())
+		log.Info("Connection from %v closed.\n", id)
 		rmchan <- client
 	}()
 	io.WriteString(c, fmt.Sprintf("Welcome, %s!\n\n", client.nickname))
@@ -151,7 +155,7 @@ func handleConnection(c net.Conn, msgchan chan chatMsg, addchan chan Client, rmc
 
 func handleMessages(msgchan chan chatMsg, addchan chan Client, rmchan chan Client) {
 
-	clients := make(map[net.Conn]chan chatMsg)
+	clients := make(map[string]chan chatMsg)
 
 	for {
 		select {
@@ -162,12 +166,14 @@ func handleMessages(msgchan chan chatMsg, addchan chan Client, rmchan chan Clien
 			}
 
 		case client := <-addchan:
-			log.Info("New client: %v\n", client.conn.RemoteAddr())
-			clients[client.conn] = client.ch
+			// log.Info("New client: %v\n", client.conn.RemoteAddr())
+			log.Info("New client:id:%v:\n", client.id)
+			clients[client.id] = client.ch
 
 		case client := <-rmchan:
-			log.Info("Client disconnects: %v\n", client.conn.RemoteAddr())
-			delete(clients, client.conn)
+			// log.Info("Client disconnects: %v\n", client.conn.RemoteAddr())
+			log.Info("Client disconnects: %v\n", client.id)
+			delete(clients, client.id)
 		}
 	}
 
