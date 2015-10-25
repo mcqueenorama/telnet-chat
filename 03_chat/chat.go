@@ -1,18 +1,16 @@
 package main
 
 import (
-	// "bufio"
 	"fmt"
-	// "io"
 	"net"
 	"os"
-	// "strings"
 
 	"github.com/spf13/viper"
 
 	"./api"
-	m "./message"
 	"./client"
+	m "./message"
+	"./telnet"
 	"./logger"
 )
 
@@ -53,19 +51,11 @@ func main() {
 	addchan := make(chan client.Client)
 	rmchan := make(chan client.Client)
 
-	go api.ApiServer(viper.GetString(apiPortName), msgchan, addchan, rmchan, log)
-
 	go handleMessages(msgchan, addchan, rmchan)
 
-	for {
-		conn, err := ln.Accept()
-		if err != nil {
-			log.Error("Listener accept error:%v:\n", err)
-			continue
-		}
+	go telnet.TelnetServer(ln, msgchan, addchan, rmchan, log)
 
-		go client.HandleTelnetConnection(conn, conn.RemoteAddr().String(), msgchan, addchan, rmchan, log)
-	}
+	api.ApiServer(viper.GetString(apiPortName), msgchan, addchan, rmchan, log)
 
 }
 
