@@ -1,16 +1,16 @@
 package main
 
 import (
-	"bufio"
+	// "bufio"
 	"fmt"
-	"io"
+	// "io"
 	"net"
-	"net/http"
 	"os"
-	"strings"
+	// "strings"
 
 	"github.com/spf13/viper"
 
+	"./api"
 	m "./message"
 	"./client"
 	"./logger"
@@ -53,7 +53,7 @@ func main() {
 	addchan := make(chan client.Client)
 	rmchan := make(chan client.Client)
 
-	go apiServer(viper.GetString(apiPortName), msgchan, addchan, rmchan)
+	go api.ApiServer(viper.GetString(apiPortName), msgchan, addchan, rmchan, log)
 
 	go handleMessages(msgchan, addchan, rmchan)
 
@@ -64,50 +64,8 @@ func main() {
 			continue
 		}
 
-		go handleTelnetConnection(conn, conn.RemoteAddr().String(), msgchan, addchan, rmchan)
+		go client.HandleTelnetConnection(conn, conn.RemoteAddr().String(), msgchan, addchan, rmchan, log)
 	}
-
-}
-
-func promptNick(c io.ReadWriter, bufc *bufio.Reader) string {
-	io.WriteString(c, "\033[1;30;41mWelcome to the fancy demo chat!\033[0m\n")
-	io.WriteString(c, "What is your nick? ")
-	nick, _, _ := bufc.ReadLine()
-	return string(nick)
-}
-
-// telnet oriented
-func handleTelnetConnection(c io.ReadWriteCloser, id string, msgchan chan m.ChatMsg, addchan chan client.Client, rmchan chan client.Client) {
-
-	bufc := bufio.NewReader(c)
-	defer c.Close()
-	client := client.Client{
-		Conn:     c,
-		Nickname: promptNick(c, bufc),
-		Ch:       make(chan m.ChatMsg),
-		Id: id,
-		Kind: "telnet",
-	}
-
-	if strings.TrimSpace(client.Nickname) == "" {
-		io.WriteString(c, "Invalid Username\n")
-		return
-	}
-
-	// Register user
-	addchan <- client
-	defer func() {
-		msgchan <- m.MakeChatMessage("system", "User %s left the chat room.\n", client.Nickname)
-		log.Info("Connection from %v closed.\n", id)
-		rmchan <- client
-	}()
-	io.WriteString(c, fmt.Sprintf("Welcome, %s!\n\n", client.Nickname))
-
-	msgchan <- m.MakeChatMessage("system", "New user %s has joined the chat room.\n", client.Nickname)
-
-	// I/O
-	go client.ReadLinesInto(msgchan)
-	client.WriteLinesFrom(client.Ch)
 
 }
 
@@ -131,46 +89,6 @@ func handleMessages(msgchan chan m.ChatMsg, addchan chan client.Client, rmchan c
 			log.Info("Client disconnects: %v\n", client.Id)
 			delete(clients, client.Id)
 		}
-	}
-
-}
-
-func apiServer(port string, msgchan chan m.ChatMsg, addchan chan client.Client, rmchan chan client.Client) {
-
-	http.HandleFunc("/chat/", func(w http.ResponseWriter, req *http.Request) {
-
-		var channel, nick, msg string
-
-		urlParts := strings.Split(req.URL.Path, "/")
-
-		log.Info("api call:%s:parts:%d:\n", req.URL.Path, len(urlParts))
-
-		if len(urlParts) < 5 {
-	        http.NotFound(w, req)
-	        return
-        } else if urlParts[3] == "" {
-	        http.NotFound(w, req)
-	        return
-        } else if urlParts[4] == "" {
-	        http.NotFound(w, req)
-	        return
-		} else {
-			channel = urlParts[2]
-			nick = urlParts[3]
-			msg = strings.Join(urlParts[4:], "/")
-		}
-
-		log.Info("api call:channel:%s:nick:%s:msg:%s:\n", channel, nick, msg)
-
-		msgchan <- m.MakeChatMessage(nick, "%s\n", msg)
-
-		fmt.Fprintf(w, "sending message for:user:%s:to chan:%s:\n", nick, channel)
-
-	})
-
-	err := http.ListenAndServe(":" + port, nil)
-	if err != nil {
-		log.Fatal("ListenAndServe: ", err)
 	}
 
 }
