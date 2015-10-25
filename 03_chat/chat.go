@@ -19,8 +19,6 @@ const (
 	apiPortName    = "apiPort"
 )
 
-var log *logger.Log
-
 func main() {
 
 	var configDefault string = "chat"
@@ -38,7 +36,7 @@ func main() {
 
 	logFile := viper.GetString("logFile")
 
-	log = logger.SetupLoggingOrDie(logFile)
+	log := logger.SetupLoggingOrDie(logFile)
 
 	log.Info("listening on ports:telnet:%s:api:%s:\n", viper.GetString(telnetPortName), viper.GetString(apiPortName))
 	ln, err := net.Listen("tcp", ":"+viper.GetString(telnetPortName))
@@ -51,7 +49,7 @@ func main() {
 	addchan := make(chan client.Client)
 	rmchan := make(chan client.Client)
 
-	go handleMessages(msgchan, addchan, rmchan)
+	go handleMessages(msgchan, addchan, rmchan, log)
 
 	go telnet.TelnetServer(ln, msgchan, addchan, rmchan, log)
 
@@ -59,7 +57,7 @@ func main() {
 
 }
 
-func handleMessages(msgchan chan m.ChatMsg, addchan chan client.Client, rmchan chan client.Client) {
+func handleMessages(msgchan chan m.ChatMsg, addchan chan client.Client, rmchan chan client.Client, log *logger.Log) {
 
 	clients := make(map[string]chan m.ChatMsg)
 
