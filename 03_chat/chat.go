@@ -166,12 +166,10 @@ func handleMessages(msgchan chan chatMsg, addchan chan Client, rmchan chan Clien
 			}
 
 		case client := <-addchan:
-			// log.Info("New client: %v\n", client.conn.RemoteAddr())
 			log.Info("New client:id:%v:\n", client.id)
 			clients[client.id] = client.ch
 
 		case client := <-rmchan:
-			// log.Info("Client disconnects: %v\n", client.conn.RemoteAddr())
 			log.Info("Client disconnects: %v\n", client.id)
 			delete(clients, client.id)
 		}
