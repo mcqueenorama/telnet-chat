@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/viper"
 
 	m "./message"
+	"./client"
 	"./logger"
 )
 
@@ -20,23 +21,7 @@ const (
 	apiPortName = "apiPort"
 )
 
-type Client struct {
-	conn     io.ReadWriteCloser
-	id string
-	nickname string
-	ch       chan m.ChatMsg
-	kind string
-}
-
 var log *logger.Log
-
-//move this fmt string into config file
-//
-//found a page showing what this stuff means
-//https://xdevs.com/guide/color_serial/
-func formatChatMessage(c m.ChatMsg) string {
-	return fmt.Sprintf("\033[1;33;40m%s: %s \033[m:%s\033[m", c.Time, c.Nick, c.Msg)
-}
 
 func main() {
 
@@ -65,8 +50,8 @@ func main() {
 	}
 	
 	msgchan := make(chan m.ChatMsg)
-	addchan := make(chan Client)
-	rmchan := make(chan Client)
+	addchan := make(chan client.Client)
+	rmchan := make(chan client.Client)
 
 	go apiServer(viper.GetString(apiPortName), msgchan, addchan, rmchan)
 
@@ -84,27 +69,6 @@ func main() {
 
 }
 
-func (c Client) ReadLinesInto(ch chan m.ChatMsg) {
-	bufc := bufio.NewReader(c.conn)
-	for {
-		line, err := bufc.ReadString('\n')
-		if err != nil {
-			break
-		}
-
-		ch <- m.MakeChatMessage(c.nickname, "%s", line)
-	}
-}
-
-func (c Client) WriteLinesFrom(ch chan m.ChatMsg) {
-	for msg := range ch {
-		_, err := io.WriteString(c.conn, formatChatMessage(msg))
-		if err != nil {
-			return
-		}
-	}
-}
-
 func promptNick(c io.ReadWriter, bufc *bufio.Reader) string {
 	io.WriteString(c, "\033[1;30;41mWelcome to the fancy demo chat!\033[0m\n")
 	io.WriteString(c, "What is your nick? ")
@@ -113,19 +77,19 @@ func promptNick(c io.ReadWriter, bufc *bufio.Reader) string {
 }
 
 // telnet oriented
-func handleTelnetConnection(c io.ReadWriteCloser, id string, msgchan chan m.ChatMsg, addchan chan Client, rmchan chan Client) {
+func handleTelnetConnection(c io.ReadWriteCloser, id string, msgchan chan m.ChatMsg, addchan chan client.Client, rmchan chan client.Client) {
 
 	bufc := bufio.NewReader(c)
 	defer c.Close()
-	client := Client{
-		conn:     c,
-		nickname: promptNick(c, bufc),
-		ch:       make(chan m.ChatMsg),
-		id: id,
-		kind: "telnet",
+	client := client.Client{
+		Conn:     c,
+		Nickname: promptNick(c, bufc),
+		Ch:       make(chan m.ChatMsg),
+		Id: id,
+		Kind: "telnet",
 	}
 
-	if strings.TrimSpace(client.nickname) == "" {
+	if strings.TrimSpace(client.Nickname) == "" {
 		io.WriteString(c, "Invalid Username\n")
 		return
 	}
@@ -133,21 +97,21 @@ func handleTelnetConnection(c io.ReadWriteCloser, id string, msgchan chan m.Chat
 	// Register user
 	addchan <- client
 	defer func() {
-		msgchan <- m.MakeChatMessage("system", "User %s left the chat room.\n", client.nickname)
+		msgchan <- m.MakeChatMessage("system", "User %s left the chat room.\n", client.Nickname)
 		log.Info("Connection from %v closed.\n", id)
 		rmchan <- client
 	}()
-	io.WriteString(c, fmt.Sprintf("Welcome, %s!\n\n", client.nickname))
+	io.WriteString(c, fmt.Sprintf("Welcome, %s!\n\n", client.Nickname))
 
-	msgchan <- m.MakeChatMessage("system", "New user %s has joined the chat room.\n", client.nickname)
+	msgchan <- m.MakeChatMessage("system", "New user %s has joined the chat room.\n", client.Nickname)
 
 	// I/O
 	go client.ReadLinesInto(msgchan)
-	client.WriteLinesFrom(client.ch)
+	client.WriteLinesFrom(client.Ch)
 
 }
 
-func handleMessages(msgchan chan m.ChatMsg, addchan chan Client, rmchan chan Client) {
+func handleMessages(msgchan chan m.ChatMsg, addchan chan client.Client, rmchan chan client.Client) {
 
 	clients := make(map[string]chan m.ChatMsg)
 
@@ -160,18 +124,18 @@ func handleMessages(msgchan chan m.ChatMsg, addchan chan Client, rmchan chan Cli
 			}
 
 		case client := <-addchan:
-			log.Info("New client:id:%v:\n", client.id)
-			clients[client.id] = client.ch
+			log.Info("New client:id:%v:\n", client.Id)
+			clients[client.Id] = client.Ch
 
 		case client := <-rmchan:
-			log.Info("Client disconnects: %v\n", client.id)
-			delete(clients, client.id)
+			log.Info("Client disconnects: %v\n", client.Id)
+			delete(clients, client.Id)
 		}
 	}
 
 }
 
-func apiServer(port string, msgchan chan m.ChatMsg, addchan chan Client, rmchan chan Client) {
+func apiServer(port string, msgchan chan m.ChatMsg, addchan chan client.Client, rmchan chan client.Client) {
 
 	http.HandleFunc("/chat/", func(w http.ResponseWriter, req *http.Request) {
 
