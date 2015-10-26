@@ -1,3 +1,6 @@
+// this package allows users to use HTTP GET calls to send messages to the chat rooms with a username
+//
+// the url format is like /chat/$room/$user/$message
 package api
 
 import (
@@ -10,6 +13,11 @@ import (
 	m "../message"
 )
 
+// ApiServer is an http server for posting message to the chat via GET
+//
+// it does not have persistent connections and needs no connection handlers
+//
+// it just makes a chat message struct and sends it on to the message handler
 func ApiServer(ip, port string, msgchan chan m.ChatMsg, addchan chan client.Client, rmchan chan client.Client) {
 
 	http.HandleFunc("/chat/", func(w http.ResponseWriter, req *http.Request) {
@@ -37,7 +45,7 @@ func ApiServer(ip, port string, msgchan chan m.ChatMsg, addchan chan client.Clie
 
 		log.Info("api call:channel:%s:nick:%s:msg:%s:\n", channel, nick, msg)
 
-		msgchan <- m.MakeChatMessage(nick, "%s\n", msg)
+		msgchan <- m.NewChatMessage(nick, "%s\n", msg)
 
 		//send reply to the caller
 		fmt.Fprintf(w, "sending message for:user:%s:to chan:%s:\n", nick, channel)
