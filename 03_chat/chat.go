@@ -1,17 +1,28 @@
 // This is a simple telnet chat server swiped largely from 
+//
 // https://github.com/akrennmair/telnet-chat
 //
-// I've added logging and a config file, and factored everything into sensible namepspaces
-// and add a structure so the internal format of a message has useful routeable metadata
+// The original code is likely hard to recognize at this time.
 //
-// I've added an api so simple HTTP GETs can be used to send messages to the chat
+// I've added logging and a config file, and factored everything into sensible namepspaces
+// and add a structure providing an internal message format with useful routeable metadata, and unique
+// identifiers for each client while the clients may be entering from different protocols, requiring
+// different id generation schemes.  See client.go.
+//
+// A very small but significant change is to the function signature of the message processing
+// code, now requiring only a ReadWriteCloser instead of specifying a net.Conn.  This makes it very easy
+// add other kinds of connections.
+//
+// Demonstrating this, I've added an api so simple HTTP GETs can be used to send messages to the chat.
+// The same simple message handler is able to handle the new entry point without change. (Though I did
+// factor code out of there too.)
 //
 // The Config file is TOML: https://github.com/toml-lang/toml
 //
 // I've used viper for command line arguments because it will handle both a config file and cli options
 // in a nice way, and it knows how to do toml.
 //
-// Logging is via https://github.com/op/go-logging since it has decent features, and ivery very configurable,
+// Logging is via https://github.com/op/go-logging since it has decent features, is very configurable,
 // and allows specification via config file.
 //
 // I've added a wrapper for the logging since I didn't like the way it was called.  With the wrapper it is called more
