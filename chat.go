@@ -1,4 +1,5 @@
 package main
+//blank line
 
 import (
 	"bufio"
