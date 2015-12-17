@@ -1,4 +1,5 @@
 package main
+
 //nothing here
 
 import (
